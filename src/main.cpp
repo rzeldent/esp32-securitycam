@@ -6,9 +6,9 @@
 #define SD_MOSI 23
 #define SD_MISO 19
 
-#include <OV2640.h>
+#include <camera.h>
 
-OV2640 cam;
+camera camera;
 
 // put your setup code here, to run once:
 void setup()
@@ -25,13 +25,15 @@ void setup()
     return;
   }
 
-  log_i("Starting camera");
+  
   // Initialize the camera
-  esp32cam_aithinker_config.frame_size = FRAMESIZE_SVGA;
-  cam.init(esp32cam_aithinker_config);
-}
+//  esp32cam_aithinker_config.frame_size = FRAMESIZE_SVGA;
+  }
 
 // put your main code here, to run repeatedly:
 void loop()
 {
+  auto frame = camera.get_frame();
+  
+
 }

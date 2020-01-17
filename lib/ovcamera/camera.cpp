@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-camera::camera(framesize_t framesize /*= FRAMESIZE_SVGA*/, pixformat_t pixformat /*= PIXFORMAT_JPEG*/, int jpeg_quality /*= 12*/)
+bool camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, pixformat_t pixformat /*= PIXFORMAT_JPEG*/, int jpeg_quality /*= 12*/)
 {
     log_i("Camera initialization starting");
     camera_config_t config = {
@@ -32,13 +32,16 @@ camera::camera(framesize_t framesize /*= FRAMESIZE_SVGA*/, pixformat_t pixformat
         .frame_size = framesize,
 
         .jpeg_quality = jpeg_quality,
-        .fb_count = psramFound() ? (size_t)2 : (size_t)1
-    };
+        .fb_count = psramFound() ? (size_t)2 : (size_t)1};
+
     // camera initialization
-    if (esp_camera_init(&config) != ESP_OK)
+    auto result = esp_camera_init(&config);
+    if (result == ESP_OK)
+        log_i("Camera initialization finished");
+    else
         log_e("Camera initialization failed");
 
-    log_i("Camera initialization finished");
+    return result;
 }
 
 camera::frame::frame()
@@ -55,8 +58,15 @@ camera::frame::~frame()
 camera::frame::buffer::buffer(bool autofree /*= true*/)
 {
     autofree_ = autofree;
-    size_ = 0;
     data_ = nullptr;
+    size_ = 0;
+}
+
+camera::frame::buffer::buffer(size_t size, bool autofree /*= true*/)
+{
+    autofree_ = autofree;
+    data_ = new uint8_t[size];
+    size_ = data_ ? size : 0;
 }
 
 camera::frame::buffer::~buffer()
@@ -72,6 +82,26 @@ camera::frame::buffer camera::frame::as_jpeg(int jpeg_quality /*= 80*/)
         camera::frame::buffer result;
         if (!frame2jpg(fb_, jpeg_quality, &result.data_, &result.size_))
             log_e("Failed to convert to JPEG");
+
+        return result;
+    }
+    else
+    {
+        camera::frame::buffer result(false);
+        result.size_ = fb_->len;
+        result.data_ = fb_->buf;
+        return result;
+    }
+}
+
+camera::frame::buffer camera::frame::as_rbg888()
+{
+    if (fb_->format != PIXFORMAT_RGB888)
+    {
+        camera::frame::buffer result(fb_->width * fb_->height * 3);
+        if (!fmt2rgb888(fb_->buf, fb_->len, fb_->format, result.data_))
+            log_e("Failed to convert to rgb888");
+
         return result;
     }
     else

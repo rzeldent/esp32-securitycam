@@ -17,6 +17,7 @@ public:
         struct buffer
         {
             buffer(bool autofree = true);
+            buffer(size_t size, bool autofree = true);
             ~buffer();
 
             bool autofree_;
@@ -25,13 +26,15 @@ public:
         };
 
         buffer as_jpeg(int jpeg_quality /*= 80*/);
+        buffer as_rbg888();
 
     protected:
         camera_fb_t *fb_;
         int64_t time_;
     };
 
-    camera(framesize_t framesize = FRAMESIZE_SVGA, pixformat_t pixformat = PIXFORMAT_JPEG, int jpeg_quality = 12);
+    bool initialize(framesize_t framesize = FRAMESIZE_SVGA, pixformat_t pixformat = PIXFORMAT_JPEG, int jpeg_quality = 12);
+    void deinitialize();
 
     static std::shared_ptr<frame> get_frame();
 };

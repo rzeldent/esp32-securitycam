@@ -24,6 +24,9 @@ void setup()
   Serial.setDebugOutput(true);
   esp_log_level_set("*", ESP_LOG_VERBOSE);
 
+//  pinMode(LED_BUILTIN, OUTPUT);
+//  digitalWrite(LED_BUILTIN, false);
+
   camera.initialize();
 
   if (!SD_MMC.begin())
@@ -53,9 +56,16 @@ void setup()
   log_i("SD_MMC Card Size: %lluMB\n", cardSize);
 }
 
+int frame_num;
 // put your main code here, to run repeatedly:
 void loop()
 {
-  //auto frame = camera.get_frame();
+  auto frame = camera.get_frame();
+  log_i("Frame size: %ld", frame->as_jpeg()->size());
+
+  String path = "/Image_" + String(frame_num++) + ".jpg";
+  auto file = SD_MMC.open(path, FILE_WRITE);
+  file.write(frame->as_jpeg()->data(), frame->as_jpeg()->size());
+  file.close();
   sleep(1);
 }

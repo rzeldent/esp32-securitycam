@@ -55,62 +55,42 @@ camera::frame::~frame()
     esp_camera_fb_return(fb_);
 }
 
-camera::frame::buffer::buffer(bool autofree /*= true*/)
+std::shared_ptr<camera::frame::buffer> camera::frame::as_jpeg(int jpeg_quality /*= 80*/) const
 {
-    autofree_ = autofree;
-    data_ = nullptr;
-    size_ = 0;
+    if (fb_->format == PIXFORMAT_JPEG)
+        return std::shared_ptr<buffer>(new buffer(fb_->len, fb_->buf, false));
+
+    uint8_t *data;
+    size_t size;
+    if (!frame2jpg(fb_, jpeg_quality, &data, &size))
+    {
+        log_e("Failed to convert to JPEG");
+        return nullptr;
+    }
+
+    return std::shared_ptr<buffer>(new buffer(size, data, true));
 }
 
-camera::frame::buffer::buffer(size_t size, bool autofree /*= true*/)
+std::shared_ptr<camera::frame::buffer> camera::frame::as_rbg888() const
 {
-    autofree_ = autofree;
-    data_ = new uint8_t[size];
-    size_ = data_ ? size : 0;
-}
+    if (fb_->format == PIXFORMAT_RGB888)
+        return std::shared_ptr<buffer>(new buffer(fb_->len, fb_->buf, false));
 
-camera::frame::buffer::~buffer()
-{
-    if (autofree_)
-        free(data_);
-}
-
-camera::frame::buffer camera::frame::as_jpeg(int jpeg_quality /*= 80*/)
-{
-    if (fb_->format != PIXFORMAT_JPEG)
+    size_t size = fb_->width * fb_->height * 3;
+    uint8_t *data = new uint8_t[size];
+    if (!data)
     {
-        camera::frame::buffer result;
-        if (!frame2jpg(fb_, jpeg_quality, &result.data_, &result.size_))
-            log_e("Failed to convert to JPEG");
-
-        return result;
+        log_e("Failed to allocate memory for rgb888 conversion");
+        return nullptr;
     }
-    else
+    
+    if (!fmt2rgb888(fb_->buf, fb_->len, fb_->format, data))
     {
-        camera::frame::buffer result(false);
-        result.size_ = fb_->len;
-        result.data_ = fb_->buf;
-        return result;
+        log_e("Failed to convert to rgb888");
+        return nullptr;
     }
-}
 
-camera::frame::buffer camera::frame::as_rbg888()
-{
-    if (fb_->format != PIXFORMAT_RGB888)
-    {
-        camera::frame::buffer result(fb_->width * fb_->height * 3);
-        if (!fmt2rgb888(fb_->buf, fb_->len, fb_->format, result.data_))
-            log_e("Failed to convert to rgb888");
-
-        return result;
-    }
-    else
-    {
-        camera::frame::buffer result(false);
-        result.size_ = fb_->len;
-        result.data_ = fb_->buf;
-        return result;
-    }
+    return std::shared_ptr<buffer>(new buffer(size, data, true));
 }
 
 std::shared_ptr<camera::frame> camera::get_frame()

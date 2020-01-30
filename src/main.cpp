@@ -10,17 +10,17 @@
 
 camera camera;
 
-// Pin to tigger the camera. Is done by a PIR sensor (needs a pull-up)
-const byte pir_pin = GPIO_NUM_16;
+// Pin to tigger the camera. Is done by a PIR sensor (needs a pull-up). GPIO13 and GPIO16 do not work!
+const byte pir_pin = GPIO_NUM_12;
 
 // Time to stay active after trigger
 const int remain_active_milliseconds = 5000;
 
 // Interval to take pictures in milliseconds
-const int picture_interval_milliseconds = 0;
+const int picture_interval_milliseconds = 100;
 
 // Last time milliseconds when motion was detected
-volatile unsigned long last_triggered = ULONG_MAX - remain_active_milliseconds;
+volatile unsigned long last_triggered;
 
 // Next image id to use for file name on SD card
 unsigned long image_id = 1;
@@ -64,21 +64,17 @@ void setup()
 
   log_i("Next image id to be used: %u", image_id);
 
-  // Set pin as interrupt, assign interrupt function and set RISING mode
-  attachInterrupt(digitalPinToInterrupt(pir_pin), [](){
-    log_i("Motion detected");
-    last_triggered = millis();
-  }, RISING);
-
   // Initialize the camera
   camera.initialize();
 }
+
+bool lastPirState = false;
 
 // put your main code here, to run repeatedly:
 void loop()
 {
   auto now = millis();
-  if (last_triggered + remain_active_milliseconds < now)
+  if (last_triggered + remain_active_milliseconds > now)
   {
     // Take a picture
     auto frame = camera.get_frame();
@@ -93,13 +89,27 @@ void loop()
     // If remain_active_milliseconds is zero, it means a one single shot
     if (remain_active_milliseconds == 0)
     {
-      last_triggered = ULONG_MAX - remain_active_milliseconds;
+      last_triggered = 0;
       log_i("Single shot.");
     }
-    else
+
+    delayMicroseconds(picture_interval_milliseconds * 1000);
+  }
+  else
+  {
+    auto state = digitalRead(pir_pin);
+    if (!lastPirState  && state)
     {
-      sleep(picture_interval_milliseconds);
-      log_i("Sleeping for %d milliseconds.", picture_interval_milliseconds);
+      // Rising: trigger
+      last_triggered = now;
+      lastPirState = true;
+      log_i("H");
+    }
+
+    if (lastPirState == true && !state)
+    {
+      lastPirState = false;
+      log_i("L");
     }
   }
 }

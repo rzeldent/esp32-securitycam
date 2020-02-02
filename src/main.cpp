@@ -13,14 +13,7 @@ camera camera;
 // Pin to tigger the camera. Is done by a PIR sensor (needs a pull-up). GPIO13 and GPIO16 do not work!
 const byte pir_pin = GPIO_NUM_12;
 
-// Time to stay active after trigger
-const int remain_active_milliseconds = 5000;
-
-// Interval to take pictures in milliseconds
-const int picture_interval_milliseconds = 100;
-
-// Last time milliseconds when motion was detected
-volatile unsigned long last_triggered;
+const char *extension = ".JPG";
 
 // Next image id to use for file name on SD card
 unsigned long image_id = 1;
@@ -44,7 +37,7 @@ void setup()
     ESP.restart();
   }
 
-  // Get last id used for the image
+  // Get last id used for the images on the SD card
   log_i("Opening: /");
   auto root = SD_MMC.open("/");
   File entry;
@@ -55,7 +48,7 @@ void setup()
     // Skip the / (+1) and try to parse;
     auto id = strtoul(entry.name() + 1, &end_parse, 10);
     // Check if parsing a number was succesful and remainder is .JPG
-    if (id == ULONG_MAX || strcmp(end_parse, ".JPG") != 0)
+    if (id == ULONG_MAX || strcmp(end_parse, extension) != 0)
       continue;
 
     if (id >= image_id)
@@ -64,8 +57,17 @@ void setup()
 
   log_i("Next image id to be used: %u", image_id);
 
+  SD_MMC.end();
+
   // Initialize the camera
-  camera.initialize();
+  if (!camera.initialize())
+  {
+    log_e("Camera initialization failed");
+    // sleep(10);
+    // ESP.restart();
+  }
+
+  log_i("Camera initialized");
 }
 
 bool lastPirState = false;
@@ -73,43 +75,39 @@ bool lastPirState = false;
 // put your main code here, to run repeatedly:
 void loop()
 {
-  auto now = millis();
-  if (last_triggered + remain_active_milliseconds > now)
+  auto state = digitalRead(pir_pin);
+  if (!state)
   {
-    // Take a picture
-    auto frame = camera.get_frame();
-    log_i("Took picture. size: %ld.", frame->as_jpeg()->size());
-    String path = "/" + String(image_id++) + ".JPG";
+    // PIR is not triggered
+    if (lastPirState)
+      log_i("Armed");
 
+    lastPirState = false;
+    return;
+  }
+
+  if (lastPirState)
+  {
+    // PIR is still triggered
+    return;
+  }
+
+  // Rising: trigger
+  lastPirState = true;
+  log_i("Triggered");
+
+  // Take a picture
+  auto frame = camera.get_frame();
+  log_i("Took picture. size: %ld.", frame->as_jpeg()->size());
+
+  // Save the image
+  String path = "/" + String(image_id++) + extension;
+  if (SD_MMC.begin())
+  {
     auto file = SD_MMC.open(path, FILE_WRITE);
     file.write(frame->as_jpeg()->data(), frame->as_jpeg()->size());
     file.close();
     log_i("Picture save as %s.", path.c_str());
-
-    // If remain_active_milliseconds is zero, it means a one single shot
-    if (remain_active_milliseconds == 0)
-    {
-      last_triggered = 0;
-      log_i("Single shot.");
-    }
-
-    delayMicroseconds(picture_interval_milliseconds * 1000);
-  }
-  else
-  {
-    auto state = digitalRead(pir_pin);
-    if (!lastPirState  && state)
-    {
-      // Rising: trigger
-      last_triggered = now;
-      lastPirState = true;
-      log_i("H");
-    }
-
-    if (lastPirState == true && !state)
-    {
-      lastPirState = false;
-      log_i("L");
-    }
+    SD_MMC.end();
   }
 }

@@ -13,7 +13,8 @@ camera camera;
 // Pin to tigger the camera. Is done by a PIR sensor (needs a pull-up). GPIO13 and GPIO16 do not work!
 const byte pir_pin = GPIO_NUM_12;
 
-const char *extension = ".JPG";
+//const char *extension = ".JPG";
+const char *extension = ".BMP";
 
 // Next image id to use for file name on SD card
 unsigned long image_id = 1;
@@ -60,7 +61,7 @@ void setup()
   SD_MMC.end();
 
   // Initialize the camera
-  if (!camera.initialize())
+  if (!camera.initialize(FRAMESIZE_QVGA, PIXFORMAT_GRAYSCALE))
   {
     log_e("Camera initialization failed");
     // sleep(10);
@@ -97,15 +98,15 @@ void loop()
   log_i("Triggered");
 
   // Take a picture
-  auto frame = camera.get_frame();
-  log_i("Took picture. size: %ld.", frame->as_jpeg()->size());
+  camera::frame frame;
+  log_i("Took picture. size: %ld.", frame.len);
 
   // Save the image
   String path = "/" + String(image_id++) + extension;
   if (SD_MMC.begin())
   {
     auto file = SD_MMC.open(path, FILE_WRITE);
-    file.write(frame->as_jpeg()->data(), frame->as_jpeg()->size());
+    frame.write_bitmap(file);
     file.close();
     log_i("Picture save as %s.", path.c_str());
     SD_MMC.end();

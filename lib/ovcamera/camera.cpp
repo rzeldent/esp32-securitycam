@@ -1,6 +1,7 @@
-#include "camera.h"
-
 #include <Arduino.h>
+
+#include <camera.h>
+#include <bitmap_colors.h>
 
 bool camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, pixformat_t pixformat /*= PIXFORMAT_JPEG*/, int jpeg_quality /*= 12*/)
 {
@@ -37,63 +38,90 @@ bool camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, pixformat_t 
     // camera initialization
     auto result = esp_camera_init(&config);
     if (result == ESP_OK)
-        log_i("Camera initialization finished");
+        log_i("Camera initialization successful");
     else
-        log_e("Camera initialization failed");
+        log_e("Camera initialization failed. Code=%x", result);
 
     return result;
 }
 
 camera::frame::frame()
+    : camera_fb_t(*esp_camera_fb_get())
 {
-    fb_ = esp_camera_fb_get();
-    time_ = esp_timer_get_time();
 }
 
 camera::frame::~frame()
 {
-    esp_camera_fb_return(fb_);
+    esp_camera_fb_return(this);
 }
 
-std::shared_ptr<camera::frame::buffer> camera::frame::as_jpeg(int jpeg_quality /*= 80*/) const
+size_t camera::frame::write_bitmap(File file)
 {
-    if (fb_->format == PIXFORMAT_JPEG)
-        return std::shared_ptr<buffer>(new buffer(fb_->len, fb_->buf, false));
-
-    uint8_t *data;
-    size_t size;
-    if (!frame2jpg(fb_, jpeg_quality, &data, &size))
+    //fmt2bmp()
+    switch (format)
     {
-        log_e("Failed to convert to JPEG");
-        return nullptr;
+    case PIXFORMAT_GRAYSCALE:
+        return write_grayscale_bm_header(file) + file.write(buf, len);
+    case PIXFORMAT_RGB888:
+        return write_rgb888_bm_header(file) + file.write(buf, len);
     }
 
-    return std::shared_ptr<buffer>(new buffer(size, data, true));
+    return file.write(buf, len);
 }
 
-std::shared_ptr<camera::frame::buffer> camera::frame::as_rbg888() const
+size_t camera::frame::write_rgb888_bm_header(File file)
 {
-    if (fb_->format == PIXFORMAT_RGB888)
-        return std::shared_ptr<buffer>(new buffer(fb_->len, fb_->buf, false));
+    log_i("Writing bitmap header for rgb888");
 
-    size_t size = fb_->width * fb_->height * 3;
-    uint8_t *data = new uint8_t[size];
-    if (!data)
-    {
-        log_e("Failed to allocate memory for rgb888 conversion");
-        return nullptr;
-    }
-    
-    if (!fmt2rgb888(fb_->buf, fb_->len, fb_->format, data))
-    {
-        log_e("Failed to convert to rgb888");
-        return nullptr;
-    }
+    BITMAPFILEHEADER bmfh = {
+        .bfType = BF_TYPE,
+        .bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + 3 * width * height,
+        .bfReserved1 = 0,
+        .bfReserved2 = 0,
+        .bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)};
 
-    return std::shared_ptr<buffer>(new buffer(size, data, true));
+    BITMAPINFOHEADER bmih = {
+        .biSize = sizeof(BITMAPINFOHEADER),
+        .biWidth = (int)width,
+        .biHeight = (int)height,
+        .biPlanes = 1,
+        .biBitCount = 3 * 8,
+        .biCompression = BI_RGB,
+        .biSizeImage = 0,
+        .biXPelsPerMeter = 2835,
+        .biYPelsPerMeter = 2835,
+        .biClrUsed = 0,
+        .biClrImportant = 0};
+
+    return file.write((uint8_t *)&bmfh, sizeof(BITMAPFILEHEADER)) +
+           file.write((uint8_t *)&bmih, sizeof(BITMAPINFOHEADER));
 }
 
-std::shared_ptr<camera::frame> camera::get_frame()
+size_t camera::frame::write_grayscale_bm_header(File file)
 {
-    return std::shared_ptr<camera::frame>(new frame());
+    log_i("Writing bitmap header for grayscale 1bpp");
+
+    BITMAPFILEHEADER bmfh = {
+        .bfType = BF_TYPE,
+        .bfSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + 0x100 * sizeof(RGBQUAD) + width * height,
+        .bfReserved1 = 0,
+        .bfReserved2 = 0,
+        .bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + 0x100 * sizeof(RGBQUAD)};
+
+    BITMAPINFOHEADER bmih = {
+        .biSize = sizeof(BITMAPINFOHEADER),
+        .biWidth = (int)width,
+        .biHeight = (int)height,
+        .biPlanes = 1,
+        .biBitCount = 8,
+        .biCompression = BI_RGB,
+        .biSizeImage = 0,
+        .biXPelsPerMeter = 2835,
+        .biYPelsPerMeter = 2835,
+        .biClrUsed = 0,
+        .biClrImportant = 0};
+
+    return file.write((uint8_t *)&bmfh, sizeof(BITMAPFILEHEADER)) +
+           file.write((uint8_t *)&bmih, sizeof(BITMAPINFOHEADER)) +
+           file.write((uint8_t *)&colors_grayscale, 0x100 * sizeof(RGBQUAD));
 }

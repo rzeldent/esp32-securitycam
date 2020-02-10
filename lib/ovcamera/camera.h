@@ -4,22 +4,22 @@
 #include "FS.h"
 
 #include <camera_pins.h>
-#include <bitmap.h>
 
 class camera
 {
 public:
-    struct frame : camera_fb_t
+    struct frame
     {
         frame();
         ~frame();
+        size_t write_jpeg(File file);
         size_t write_bitmap(File file);
 
     private:
-        size_t write_rgb888_bm_header(File file);
-        size_t write_grayscale_bm_header(File file);
+        camera_fb_t *fb_;
     };
 
-    bool initialize(framesize_t framesize = FRAMESIZE_SVGA, pixformat_t pixformat = PIXFORMAT_JPEG, int jpeg_quality = 12);
+    // 0-63 lower means higher quality
+    bool initialize(framesize_t framesize = FRAMESIZE_SVGA, int jpeg_quality = 6);
     void deinitialize();
 };

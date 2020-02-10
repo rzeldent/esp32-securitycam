@@ -45,7 +45,7 @@ void setup()
   char *end_parse;
   while ((entry = root.openNextFile()))
   {
-    log_i("Found file: %s", entry.name());
+    log_d("Found file: %s", entry.name());
     // Skip the / (+1) and try to parse;
     auto id = strtoul(entry.name() + 1, &end_parse, 10);
     // Check if parsing a number was succesful and remainder is .JPG
@@ -61,14 +61,14 @@ void setup()
   SD_MMC.end();
 
   // Initialize the camera
-  if (!camera.initialize(FRAMESIZE_QVGA, PIXFORMAT_GRAYSCALE))
+  if (!camera.initialize(FRAMESIZE_QVGA))
   {
     log_e("Camera initialization failed");
-    // sleep(10);
-    // ESP.restart();
+    sleep(10);
+    ESP.restart();
   }
 
-  log_i("Camera initialized");
+  log_d("Camera initialized");
 }
 
 bool lastPirState = false;
@@ -99,7 +99,6 @@ void loop()
 
   // Take a picture
   camera::frame frame;
-  log_i("Took picture. size: %ld.", frame.len);
 
   // Save the image
   String path = "/" + String(image_id++) + extension;

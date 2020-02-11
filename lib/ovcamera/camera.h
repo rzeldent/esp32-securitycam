@@ -5,13 +5,13 @@
 
 #include <camera_pins.h>
 
-class camera
+class Camera
 {
 public:
-    struct frame
+    struct Frame
     {
-        frame();
-        ~frame();
+        Frame();
+        ~Frame();
         size_t write_jpeg(File file);
         size_t write_bitmap(File file);
 

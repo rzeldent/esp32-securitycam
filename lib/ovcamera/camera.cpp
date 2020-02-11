@@ -6,9 +6,9 @@
 // From: https://github.com/m5stack/m5stack-cam-psram/blob/master/README.md:
 // If you need RGB data, it is recommended that JPEG is captured and then turned into RGB using fmt2rgb888 or fmt2bmp/frame2bmp.
 
-bool camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, int jpeg_quality /*= 6*/)
+bool Camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, int jpeg_quality /*= 6*/)
 {
-    log_i("Camera initialization starting");
+    log_i("Camera initialization");
     camera_config_t config = {
         .pin_pwdn = PWDN_GPIO_NUM,
         .pin_reset = RESET_GPIO_NUM,
@@ -48,13 +48,13 @@ bool camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, int jpeg_qua
     return result == ESP_OK;
 }
 
-camera::frame::frame()
+Camera::Frame::Frame()
 {
     fb_ = esp_camera_fb_get();
     log_i("New frame. size: %ld.", fb_->len);
 }
 
-camera::frame::~frame()
+Camera::Frame::~Frame()
 {
     esp_camera_fb_return(fb_);
     log_i("Deleted frame.");
@@ -62,13 +62,13 @@ camera::frame::~frame()
 
 //    fmt2bmp
 
-size_t camera::frame::write_jpeg(File file)
+size_t Camera::Frame::write_jpeg(File file)
 {
     return file.write(fb_->buf, fb_->len);
 }
 
 //  BMP you should not go over 800x600.
-size_t camera::frame::write_bitmap(File file)
+size_t Camera::Frame::write_bitmap(File file)
 {
     uint8_t *out;
     size_t out_len;

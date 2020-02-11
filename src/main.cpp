@@ -8,13 +8,12 @@
 
 #include <camera.h>
 
-camera camera;
+Camera camera;
 
 // Pin to tigger the camera. Is done by a PIR sensor (needs a pull-up). GPIO13 and GPIO16 do not work!
 const byte pir_pin = GPIO_NUM_12;
 
-//const char *extension = ".JPG";
-const char *extension = ".BMP";
+const char *extension = ".jpg";
 
 // Next image id to use for file name on SD card
 unsigned long image_id = 1;
@@ -28,9 +27,10 @@ void setup()
   Serial.setDebugOutput(true);
   esp_log_level_set("*", ESP_LOG_VERBOSE);
 
+  // AM312 needs a pullup resistor
   pinMode(pir_pin, INPUT_PULLUP);
 
-  // Look for the higest frame numer found
+  // Look for the higest frame number found
   if (!SD_MMC.begin())
   {
     log_e("SD card mount failed");
@@ -39,7 +39,7 @@ void setup()
   }
 
   // Get last id used for the images on the SD card
-  log_i("Opening: /");
+  log_i("Looking for last image id used");
   auto root = SD_MMC.open("/");
   File entry;
   char *end_parse;
@@ -61,7 +61,7 @@ void setup()
   SD_MMC.end();
 
   // Initialize the camera
-  if (!camera.initialize(FRAMESIZE_QVGA))
+  if (!camera.initialize(FRAMESIZE_SXGA))
   {
     log_e("Camera initialization failed");
     sleep(10);
@@ -71,43 +71,69 @@ void setup()
   log_d("Camera initialized");
 }
 
-bool lastPirState = false;
-
-// put your main code here, to run repeatedly:
-void loop()
+void loop_singleshot(uint delayMilliseconds = 0)
 {
-  auto state = digitalRead(pir_pin);
-  if (!state)
-  {
-    // PIR is not triggered
-    if (lastPirState)
-      log_i("Armed");
-
-    lastPirState = false;
+  if (digitalRead(pir_pin) == LOW)
     return;
-  }
 
-  if (lastPirState)
-  {
-    // PIR is still triggered
-    return;
-  }
-
-  // Rising: trigger
-  lastPirState = true;
-  log_i("Triggered");
+  // Optional delay
+  delayMicroseconds(1000 * delayMilliseconds);
 
   // Take a picture
-  camera::frame frame;
-
+  Camera::Frame frame;
   // Save the image
   String path = "/" + String(image_id++) + extension;
-  if (SD_MMC.begin())
+  if (!SD_MMC.begin())
   {
     auto file = SD_MMC.open(path, FILE_WRITE);
-    frame.write_bitmap(file);
+    frame.write_jpeg(file);
     file.close();
     log_i("Picture save as %s.", path.c_str());
     SD_MMC.end();
   }
+  else
+  {
+    log_e("Unable to open SD card");
+  }
+
+  do
+  {
+    delayMicroseconds(1000 * 10);
+  } while (digitalRead(pir_pin) == HIGH);
+}
+
+void loop_continuous()
+{
+  if (digitalRead(pir_pin) == LOW)
+    return;
+
+  if (SD_MMC.begin())
+  {
+    do
+    {
+      // Take a picture
+      Camera::Frame frame;
+      // Save the image
+      String path = "/" + String(image_id++) + extension;
+      auto file = SD_MMC.open(path, FILE_WRITE);
+      frame.write_jpeg(file);
+      file.close();
+      log_i("Picture save as %s.", path.c_str());
+    } while (digitalRead(pir_pin) == HIGH);
+
+    SD_MMC.end();
+  }
+  else
+  {
+    log_e("Unable to open SD card");
+  }
+}
+
+// put your main code here, to run repeatedly:
+void loop()
+{
+  // Uncomment below the desired behavior: SingleShot or Continuous
+
+  //loop_singleshot();
+  loop_continuous();
 }

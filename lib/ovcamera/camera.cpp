@@ -41,7 +41,7 @@ bool Camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, int jpeg_qua
     // camera initialization
     auto result = esp_camera_init(&config);
     if (result == ESP_OK)
-        log_i("Camera initialization successful");
+        log_d("Camera initialization successful");
     else
         log_e("Camera initialization failed. Code=%d", result);
 
@@ -51,13 +51,13 @@ bool Camera::initialize(framesize_t framesize /*= FRAMESIZE_SVGA*/, int jpeg_qua
 Camera::Frame::Frame()
 {
     fb_ = esp_camera_fb_get();
-    log_i("New frame. size: %ld.", fb_->len);
+    log_d("New frame. size: %ld.", fb_->len);
 }
 
 Camera::Frame::~Frame()
 {
     esp_camera_fb_return(fb_);
-    log_i("Deleted frame.");
+    log_d("Deleted frame.");
 }
 
 //    fmt2bmp
@@ -67,7 +67,7 @@ size_t Camera::Frame::write_jpeg(File file)
     return file.write(fb_->buf, fb_->len);
 }
 
-//  BMP you should not go over 800x600.
+// bitmap you should not go over 800x600.
 size_t Camera::Frame::write_bitmap(File file)
 {
     uint8_t *out;

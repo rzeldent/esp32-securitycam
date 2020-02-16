@@ -10,13 +10,13 @@ class Camera
 public:
     struct Frame
     {
+        camera_fb_t *fb_;
+
         Frame();
         ~Frame();
+
         size_t write_jpeg(File file);
         size_t write_bitmap(File file);
-
-    private:
-        camera_fb_t *fb_;
     };
 
     // 0-63 lower means higher quality

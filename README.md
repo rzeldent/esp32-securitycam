@@ -22,7 +22,8 @@ Bill of materials:
 ## Wiring
 The PIR sensor must be powered (using the GND and 3.3V) and its output connected to GPIO12.
 
-![Wiring](https://github.com/rzeldent/esp32-securitycam/blob/master/side%20view.jpg
+![Wiring](https://github.com/rzeldent/esp32-securitycam/blob/master/side%20view.jpg)
+
 
 
 ## Preparation

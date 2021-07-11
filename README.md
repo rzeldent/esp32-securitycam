@@ -2,8 +2,9 @@
 
 ## Description
 ESP Camera module that will wake up from deep sleep when the PIR sensor is triggered.
-A PIR sensor (**P**assive **i**nfra**r**ed) detects the presence of humand and other anilmals.
+A PIR sensor (**P**assive **i**nfra**r**ed) detects the presence of humand and other animals.
 While triggered it takes pictures and writes them to the SD Card.
+To prevent flashing of the LED (connected to one of the SD interface pins) it has been desoldered.
 
 Because the esp32 is in deep sleep mode and the PIR sensor uses little energy, it can be battery powered.
 
